@@ -21,7 +21,7 @@ object Mandelbrot {
       val row = new Row(
           Mandelbrot.x1,
           (Mandelbrot.x2 - Mandelbrot.x1) / Mandelbrot.COLS,
-          Mandelbrot.y1 + (Mandelbrot.y2 - Mandelbrot.y1) / Mandelbrot.ROWS,
+          Mandelbrot.y1 + i * ((Mandelbrot.y2 - Mandelbrot.y1) / Mandelbrot.ROWS),
           i,
           Mandelbrot.COLS)
       val rowActor = new RowActor(resultsCollector)
