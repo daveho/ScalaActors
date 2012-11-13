@@ -1,5 +1,9 @@
 package edu.ycp.cs340.mandelbrot
 import scala.actors.Actor
+import scala.actors.Actor._
+import scala.actors.OutputChannel
+
+case object Get
 
 object Mandelbrot {
   val ROWS = 40
@@ -28,17 +32,44 @@ object Mandelbrot {
       rowActor.start()
       rowActor ! row
     }
+    
+    val futureResults = m !! Get
+    
+    println("Forcing future...")
+    val results = futureResults()
+    println("Future is ready?")
+    
+    results match {
+      case results : List[(Int, List[Int])] => {
+        results.foreach( pair => {
+          println(pair._1 + ": " + pair._2)
+        })
+      }  
+    }
   }
 }
 
 class Mandelbrot extends Actor {
+  var results : List[(Int, List[Int])] = null
+  var actorWaitingForResults : OutputChannel[Any] = null
+  
   def act() = {
     loop {
       react {
-    	case results : List[(Int, List[Int])] => {
-    	  val sorted = results.sortWith( (l, r) => l._1 < r._1 )
-    	  sorted.foreach( pair => println(pair._1 + ": " + pair._2) )
-    	  exit()
+    	case unsortedResults : List[(Int, List[Int])] => {
+    	  results = unsortedResults.sortWith( (l, r) => l._1 < r._1 )
+    	  if (actorWaitingForResults != null) {
+    	    println("Sending results to waiting actor")
+    	    actorWaitingForResults ! results
+    	  }
+    	}
+    	case Get => {
+    	  if (results != null) {
+    	    sender ! results
+    	  } else {
+    	    println("Get received early?")
+    	    actorWaitingForResults = sender
+    	  }
     	}
       }
     }
