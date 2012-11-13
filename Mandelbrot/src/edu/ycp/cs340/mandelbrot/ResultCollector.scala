@@ -4,14 +4,14 @@ import scala.actors.Actor
 case class Done
 
 class ResultCollector(numRows : Int, whenFinished : Actor) extends Actor {
-  var results : List[List[Int]] = List()
+  var results : List[(Int, List[Int])] = List()
   var rowsRecevied : Int = 0
   
   def act() = {
     loop {
       react {
         case (row : Row, rowResult : List[Int]) => {
-          results = rowResult :: results
+          results = (row.row, rowResult) :: results
           rowsRecevied = rowsRecevied + 1
           if (rowsRecevied == numRows) {
             println("Received all rows?")

@@ -35,8 +35,9 @@ class Mandelbrot extends Actor {
   def act() = {
     loop {
       react {
-    	case results : List[List[Int]] => {
-    	  results.foreach( rowList => println(rowList) )
+    	case results : List[(Int, List[Int])] => {
+    	  val sorted = results.sortWith( (l, r) => l._1 < r._1 )
+    	  sorted.foreach( pair => println(pair._1 + ": " + pair._2) )
     	  exit()
     	}
       }
