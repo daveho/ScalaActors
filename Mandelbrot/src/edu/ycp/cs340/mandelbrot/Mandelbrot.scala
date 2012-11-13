@@ -3,8 +3,6 @@ import scala.actors.Actor
 import scala.actors.Actor._
 import scala.actors.OutputChannel
 
-case object Get
-
 object Mandelbrot {
   val ROWS = 40
   val COLS = 40
@@ -15,10 +13,7 @@ object Mandelbrot {
   val y2 = 2.0
   
   def main(args: Array[String]) {
-    val m = new Mandelbrot()
-    m.start()
-    
-    val resultsCollector = new ResultCollector(Mandelbrot.ROWS, m)
+    val resultsCollector = new ResultCollector(Mandelbrot.ROWS)
     resultsCollector.start()
 
     for (i <- 0 until Mandelbrot.ROWS) {
@@ -33,7 +28,7 @@ object Mandelbrot {
       rowActor ! row
     }
     
-    val futureResults = m !! Get
+    val futureResults = resultsCollector !! Get
     
     println("Forcing future...")
     val results = futureResults()
@@ -45,33 +40,6 @@ object Mandelbrot {
           println(pair._1 + ": " + pair._2)
         })
       }  
-    }
-  }
-}
-
-class Mandelbrot extends Actor {
-  var results : List[(Int, List[Int])] = null
-  var actorWaitingForResults : OutputChannel[Any] = null
-  
-  def act() = {
-    loop {
-      react {
-    	case unsortedResults : List[(Int, List[Int])] => {
-    	  results = unsortedResults.sortWith( (l, r) => l._1 < r._1 )
-    	  if (actorWaitingForResults != null) {
-    	    println("Sending results to waiting actor")
-    	    actorWaitingForResults ! results
-    	  }
-    	}
-    	case Get => {
-    	  if (results != null) {
-    	    sender ! results
-    	  } else {
-    	    println("Get received early?")
-    	    actorWaitingForResults = sender
-    	  }
-    	}
-      }
     }
   }
 }
