@@ -3,43 +3,50 @@ import scala.actors.Actor
 import scala.actors.Actor._
 import scala.actors.OutputChannel
 
-object Mandelbrot {
-  val ROWS = 40
-  val COLS = 40
-  
-  val x1 = -2.0
-  val y1 = -2.0
-  val x2 = 2.0
-  val y2 = 2.0
-  
-  def main(args: Array[String]) {
-    val resultsCollector = new ResultCollector(Mandelbrot.ROWS)
-    resultsCollector.start()
+case object Get
 
-    for (i <- 0 until Mandelbrot.ROWS) {
-      val row = new Row(
-          Mandelbrot.x1,
-          (Mandelbrot.x2 - Mandelbrot.x1) / Mandelbrot.COLS,
-          Mandelbrot.y1 + i * ((Mandelbrot.y2 - Mandelbrot.y1) / Mandelbrot.ROWS),
-          i,
-          Mandelbrot.COLS)
-      val rowActor = new RowActor(resultsCollector)
-      rowActor.start()
-      rowActor ! row
-    }
-    
-    val futureResults = resultsCollector !! Get
-    
-    println("Forcing future...")
-    val results = futureResults()
-    println("Future is ready?")
-    
-    results match {
-      case results : List[(Int, List[Int])] => {
-        results.foreach( pair => {
-          println(pair._1 + ": " + pair._2)
-        })
-      }  
+class Mandelbrot(x1 : Double, y1 : Double, x2 : Double, y2 : Double, nCols : Int, nRows : Int) extends Actor {
+  var resultSink : OutputChannel[Any] = null
+  var partialResults : List[(Int, List[Int])] = List()
+  var rowsReceived : Int = 0
+  
+  def act() = {
+    loop {
+      react {
+        case Get => {
+          // Make a note of which actor requested the results of the computation
+          resultSink = sender
+          
+          // Start RowActors to compute each row
+          for (j <- 0 until nRows) {
+            val xDiff = (x2 - x1) / nCols
+            val yDiff = (y2 - y1) / nRows
+            val row = new Row(x1, xDiff, y1 + j*yDiff, j, nCols)
+            val rowActor = new RowActor()
+            rowActor.start()
+            rowActor ! row
+          }
+        }
+        
+        case r : (Int, List[Int]) => {
+          println("Receive result for row " + r._1)
+          // A RowActor is sending us completed results for a row
+          partialResults = r :: partialResults
+          rowsReceived += 1
+          
+          // Are all rows finished?
+          if (rowsReceived == nRows) {
+            // Sort rows by row number (since they probably arrived out of order)
+            val results = partialResults.sortWith( (l, r) => l._1 < r._1 )
+            
+            // Send sorted results to the actor that requested them
+            resultSink ! results
+            
+            // Computation is done
+            exit()
+          }
+        }
+      }
     }
   }
 }
